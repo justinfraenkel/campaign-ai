@@ -1,103 +1,138 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
+
+import { useState, useRef } from "react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [input, setInput] = useState("");
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const planRef = useRef<HTMLDivElement>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleGenerate = async () => {
+    if (!input.trim()) return;
+
+    setLoading(true);
+    setOutput("");
+
+    const res = await fetch("/api/generate-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief: input }),
+    });
+
+    const data = await res.json();
+    setOutput(data.plan);
+    setLoading(false);
+  };
+
+  const handleDownload = async () => {
+    if (!planRef.current) return;
+
+    const html2pdf = (await import("html2pdf.js")).default;
+
+    html2pdf()
+      .from(planRef.current)
+      .set({
+        margin: 0.5,
+        filename: "campaign-plan.pdf",
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      })
+      .save();
+  };
+
+  const renderFormattedOutput = () => {
+    if (!output) return null;
+
+    const sections = output.split(/\n(?=### )/g); // split at '### Section Title'
+
+    return (
+      <div
+        ref={planRef}
+        className="font-sans bg-white text-[#312F31] px-10 py-8 rounded shadow space-y-6 max-w-[700px] mx-auto"
+        style={{
+          fontFamily: "Inter, sans-serif",
+          pageBreakInside: "avoid",
+          breakInside: "avoid",
+        }}
+      >
+        {/* Logo */}
+        <div className="w-full flex justify-center mb-6">
+          <img src="/wordmark_dark.png" alt="campaign.ai logo" className="h-8" />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {/* Sections */}
+        {sections.map((section, idx) => {
+          const titleMatch = section.match(/^### (.+)/);
+          const title = titleMatch ? titleMatch[1] : "";
+          const content = section.replace(/^### .+\n?/, "");
+
+          return (
+            <div
+              key={idx}
+              className="space-y-2"
+              style={{
+                pageBreakInside: "avoid",
+                breakInside: "avoid",
+              }}
+            >
+              {title && (
+                <h2 className="text-xl font-semibold text-[#11C4D3]">
+                  {title}
+                </h2>
+              )}
+              <div className="whitespace-pre-wrap">{content.trim()}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <main className="min-h-screen bg-white text-[#312F31] p-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <h1 className="text-3xl font-bold text-[#11C4D3]">
+          campaign.ai — 1-Page Plan Generator
+        </h1>
+
+        <textarea
+          placeholder="Paste your messy campaign brief here..."
+          className="w-full h-48 p-4 border border-gray-300 rounded-lg resize-none"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+        />
+
+        <div className="flex items-center gap-4">
+          <button
+            className="bg-[#11C4D3] text-white font-semibold px-4 py-2 rounded hover:bg-[#0da6b7] disabled:opacity-50"
+            onClick={handleGenerate}
+            disabled={loading}
+          >
+            {loading ? "Generating..." : "Generate Plan"}
+          </button>
+
+          {output && (
+            <button
+              onClick={handleDownload}
+              className="text-[#11C4D3] border border-[#11C4D3] font-semibold px-4 py-2 rounded hover:bg-[#f0f9fa]"
+            >
+              Download PDF
+            </button>
+          )}
+        </div>
+
+        <div className="mt-8 border-t pt-6">
+          {output ? (
+            <div className="space-y-4">{renderFormattedOutput()}</div>
+          ) : (
+            <p className="text-gray-400 italic">
+              Your clean campaign plan will appear here...
+            </p>
+          )}
+        </div>
+      </div>
+    </main>
   );
 }
